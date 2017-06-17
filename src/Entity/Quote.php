@@ -7,6 +7,16 @@ class Quote
     public $destinationId;
     public $dateQuoted;
 
+    /**
+     * Mapping placeholders to a specific method
+     */
+    public static $placeholders = array(
+        'destination_name' => 'getDestinationName',
+        'destination_link' => 'getDestinationLink',
+        'summary' => 'getSummary',
+        'summary_html' => 'getSummaryHtml'
+    );
+
     public function __construct($id, $siteId, $destinationId, $dateQuoted)
     {
         $this->id = $id;
@@ -15,13 +25,45 @@ class Quote
         $this->dateQuoted = $dateQuoted;
     }
 
-    public static function renderHtml(Quote $quote)
+    /**
+     *
+     * PRIVATE METHODS
+     *
+     */
+
+    /**
+     * Gets destination name
+     * @return string
+     */
+    private function getDestinationName()
     {
-        return '<p>' . $quote->id . '</p>';
+        return DestinationRepository::getInstance()->getById($this->destinationId)->countryName;
     }
 
-    public static function renderText(Quote $quote)
+    /**
+     * Gets destination link
+     * @return string
+     */
+    private function getDestinationLink()
     {
-        return (string) $quote->id;
+        return SiteRepository::getInstance()->getById($this->siteId)->url . '/' . DestinationRepository::getInstance()->getById($this->destinationId)->countryName . '/quote/' . $this->id;
+    }
+
+    /**
+     * Gets summary
+     * @return string
+     */
+    private function getSummary()
+    {
+        return (string) $this->id;
+    }
+
+    /**
+     * Gets summary html
+     * @return string
+     */
+    private function getSummaryHtml()
+    {
+        return '<p>' . $this->id . '</p>';
     }
 }
