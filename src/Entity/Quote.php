@@ -26,6 +26,18 @@ class Quote
     }
 
     /**
+     * Gets replace text
+     * @param string $placeholder
+     * @return string
+     */
+    public function getReplaceText($placeholder)
+    {
+        $method = self::$placeholders[$placeholder];
+
+        return call_user_func(array(get_class($this), $method));
+    }
+
+    /**
      *
      * PRIVATE METHODS
      *
