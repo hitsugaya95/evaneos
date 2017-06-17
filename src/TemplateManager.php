@@ -17,57 +17,57 @@ class TemplateManager
 
     private function computeText($text, array $data)
     {
-        $APPLICATION_CONTEXT = ApplicationContext::getInstance();
+        /**
+         * Quote
+         * [quote:*]
+         */
+        if (isset($data['quote']) && $data['quote'] instanceof Quote) {
+            $quote = $data['quote'];
+            $quoteFromRepository = QuoteRepository::getInstance()->getById($quote->id);
 
-        $quote = (isset($data['quote']) and $data['quote'] instanceof Quote) ? $data['quote'] : null;
+            // Look for all quotes
+            preg_match_all('/quote:([a-zA-Z0-9\_]+)/', $text, $quoteMatches);
 
-        if ($quote)
-        {
-            $_quoteFromRepository = QuoteRepository::getInstance()->getById($quote->id);
-            $usefulObject = SiteRepository::getInstance()->getById($quote->siteId);
-            $destinationOfQuote = DestinationRepository::getInstance()->getById($quote->destinationId);
-
-            if(strpos($text, '[quote:destination_link]') !== false){
-                $destination = DestinationRepository::getInstance()->getById($quote->destinationId);
-            }
-
-            $containsSummaryHtml = strpos($text, '[quote:summary_html]');
-            $containsSummary     = strpos($text, '[quote:summary]');
-
-            if ($containsSummaryHtml !== false || $containsSummary !== false) {
-                if ($containsSummaryHtml !== false) {
-                    $text = str_replace(
-                        '[quote:summary_html]',
-                        Quote::renderHtml($_quoteFromRepository),
-                        $text
-                    );
-                }
-                if ($containsSummary !== false) {
-                    $text = str_replace(
-                        '[quote:summary]',
-                        Quote::renderText($_quoteFromRepository),
-                        $text
-                    );
+            // Replace quote
+            foreach ($quoteMatches[1] as $match) {
+                if (Quote::$placeholders[$match] !== null) {
+                    $replaceQuote = $quoteFromRepository->getReplaceText($match);
+                    $text = $this->replaceQuote('[quote:' . $match . ']', $replaceQuote, $text);
                 }
             }
-
-            (strpos($text, '[quote:destination_name]') !== false) and $text = str_replace('[quote:destination_name]',$destinationOfQuote->countryName,$text);
         }
-
-        if (isset($destination))
-            $text = str_replace('[quote:destination_link]', $usefulObject->url . '/' . $destination->countryName . '/quote/' . $_quoteFromRepository->id, $text);
-        else
-            $text = str_replace('[quote:destination_link]', '', $text);
 
         /*
          * USER
          * [user:*]
          */
-        $_user  = (isset($data['user'])  and ($data['user']  instanceof User))  ? $data['user']  : $APPLICATION_CONTEXT->getCurrentUser();
-        if($_user) {
-            (strpos($text, '[user:first_name]') !== false) and $text = str_replace('[user:first_name]'       , ucfirst(mb_strtolower($_user->firstname)), $text);
+        $applicationContext = ApplicationContext::getInstance();
+        $user = (isset($data['user']) && ($data['user'] instanceof User)) ? $data['user'] : $applicationContext->getCurrentUser();
+
+        // Look for all user quote
+        preg_match_all('/user:([a-zA-Z0-9\_]+)/', $text, $usermatches);
+
+        // Replace user
+        foreach ($usermatches[1] as $match) {
+            if (User::$placeholders[$match] !== null) {
+                $placeholder = User::$placeholders[$match];
+                $replaceQuote = $user->$placeholder;
+                $text = $this->replaceQuote('[user:' . $match . ']', $replaceQuote, $text);
+            }
         }
 
         return $text;
+    }
+
+    /**
+     * Replace quote
+     * @param string $quote   the string we want to replace
+     * @param string $replace the replace string
+     * @param string $text
+     * @return string
+     */
+    private function replaceQuote($quote, $replace, $text)
+    {
+        return str_replace($quote, $replace, $text);
     }
 }
