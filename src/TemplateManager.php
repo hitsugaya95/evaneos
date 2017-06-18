@@ -2,6 +2,15 @@
 
 class TemplateManager
 {
+    /**
+     * Type of text to replace
+     * @var array
+     */
+    private $textType = array(
+        'quote' => true,
+        'user' => true
+    );
+
     public function getTemplateComputed(Template $tpl, array $data)
     {
         if (!$tpl) {
@@ -23,18 +32,8 @@ class TemplateManager
          */
         if (isset($data['quote']) && $data['quote'] instanceof Quote) {
             $quote = $data['quote'];
-            $quoteFromRepository = QuoteRepository::getInstance()->getById($quote->id);
-
-            // Look for all quotes
-            preg_match_all('/quote:([a-zA-Z0-9\_]+)/', $text, $quoteMatches);
-
-            // Replace quote
-            foreach ($quoteMatches[1] as $match) {
-                if (Quote::$placeholders[$match] !== null) {
-                    $replaceQuote = $quoteFromRepository->getReplaceText($match);
-                    $text = $this->replaceQuote('[quote:' . $match . ']', $replaceQuote, $text);
-                }
-            }
+            $quoteEntity = QuoteRepository::getInstance()->getById($quote->id);
+            $text = $this->replaceText('quote', $text, $quoteEntity);
         }
 
         /*
@@ -43,16 +42,33 @@ class TemplateManager
          */
         $applicationContext = ApplicationContext::getInstance();
         $user = (isset($data['user']) && ($data['user'] instanceof User)) ? $data['user'] : $applicationContext->getCurrentUser();
+        $text = $this->replaceText('user', $text, $user);
+
+        return $text;
+    }
+
+    /**
+     * Replaces text by type
+     * @param string $type
+     * @param string $text
+     * @param object $entity
+     * @return string
+     */
+    private function replaceText($type, $text, $entity)
+    {
+        if ($this->textType[$type] === null) {
+            return $text;
+        }
 
         // Look for all user quote
-        preg_match_all('/user:([a-zA-Z0-9\_]+)/', $text, $usermatches);
+        preg_match_all('/' . $type . ':([a-zA-Z0-9\_]+)/', $text, $matches);
 
-        // Replace user
-        foreach ($usermatches[1] as $match) {
-            if (User::$placeholders[$match] !== null) {
-                $placeholder = User::$placeholders[$match];
-                $replaceQuote = $user->$placeholder;
-                $text = $this->replaceQuote('[user:' . $match . ']', $replaceQuote, $text);
+        // Replace text
+        $placeholders = $this->getPlaceholdersByType($type);
+        foreach ($matches[1] as $match) {
+            if ($placeholders[$match] !== null) {
+                $replaceQuote = $this->getReplaceTextByType($type, $match, $entity);
+                $text = str_replace('[' . $type . ':' . $match . ']', $replaceQuote, $text);
             }
         }
 
@@ -60,14 +76,47 @@ class TemplateManager
     }
 
     /**
-     * Replace quote
-     * @param string $quote   the string we want to replace
-     * @param string $replace the replace string
+     * Gets placeholders by type
+     * @param string $type
+     * @return string on success, otherwise null
+     */
+    private function getPlaceholdersByType($type)
+    {
+        $placeholders = null;
+        switch ($type) {
+            case 'quote':
+                $placeholders = Quote::$placeholders;
+            break;
+
+            case 'user':
+                $placeholders = User::$placeholders;
+            break;
+        }
+
+        return $placeholders;
+    }
+
+    /**
+     * Gets replace text by type
+     * @param string $type
      * @param string $text
+     * @param object $entity
      * @return string
      */
-    private function replaceQuote($quote, $replace, $text)
+    private function getReplaceTextByType($type, $text, $entity)
     {
-        return str_replace($quote, $replace, $text);
+        $replaceQuote = '';
+        switch ($type) {
+            case 'quote':
+                $replaceQuote = $entity->getReplaceText($text);
+            break;
+
+            case 'user':
+                $placeholder = User::$placeholders[$text];
+                $replaceQuote = $entity->$placeholder;
+            break;
+        }
+
+        return $replaceQuote;
     }
 }
